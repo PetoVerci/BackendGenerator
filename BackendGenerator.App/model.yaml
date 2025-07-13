@@ -1,0 +1,57 @@
+entities:
+  - name: Student
+    properties:
+      - name: id
+        type: int
+        primaryKey: true
+        required: true
+      - name: name
+        type: string
+        required: true
+      - name: email
+        type: string
+        required: true
+      - name: age
+        type: int
+
+  - name: Course
+    properties:
+      - name: id
+        type: int
+        primaryKey: true
+        required: true
+      - name: title
+        type: string
+        required: true
+      - name: description
+        type: string
+
+  - name: Enrollment  # Explicit join entity
+    properties:
+      - name: studentId
+        type: int
+        required: true
+        primaryKey: true
+        foreignKey: Student.id
+        onDelete: Cascade        # <- Added here
+      - name: courseId
+        type: int
+        required: true
+        primaryKey: true
+        foreignKey: Course.id
+        onDelete: Cascade        # <- Added here
+      - name: enrolledAt
+        type: datetime
+        required: true
+
+queries:
+  - name: GetTopCoursesByTitle
+    entity: Course
+    type: top
+    count: 5
+    orderBy: title
+
+  - name: FilterStudentsByAge
+    entity: Student
+    type: filter
+    filter: "age > 21"

@@ -9,11 +9,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="FluentResults" Version="4.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
+    <PackageReference Include="System.IO.Abstractions" Version="22.0.15" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BackendGenerator.Core\BackendGenerator.Core.csproj" />
+    <ProjectReference Include="..\BackendGenerator.Infrastructure\BackendGenerator.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="model.yaml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
