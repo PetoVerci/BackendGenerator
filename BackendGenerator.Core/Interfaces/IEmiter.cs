@@ -3,7 +3,7 @@ using FluentResults;
 
 namespace BackendGenerator.Core.Interfaces;
 
-public interface IModelParser
+public interface IEmiter
 {
-    Result<Model> Load(string path);
+    Result<string> Emit(Model m);
 }

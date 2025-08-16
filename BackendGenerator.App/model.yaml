@@ -1,57 +1,102 @@
+version: "1.0"
+name: Shop
 entities:
-  - name: Student
-    properties:
-      - name: id
-        type: int
-        primaryKey: true
-        required: true
-      - name: name
+  Product:
+    fields:
+      id:
+        type: uuid
+        pk: true
+      name:
         type: string
         required: true
-      - name: email
-        type: string
+      price:
+        type: decimal
         required: true
-      - name: age
+      stock:
         type: int
+        required: true
+      categoryId:
+        type: uuid
+        required: true
+    relations:
+      - kind: many-to-one
+        from: Product.categoryId
+        to: Category.id
+        onDelete: cascade
+      - kind: many-to-many
+        from: Product.id
+        to: Tag.id
+        through: ProductTag
+        onDelete: cascade
 
-  - name: Course
-    properties:
-      - name: id
-        type: int
-        primaryKey: true
-        required: true
-      - name: title
+  Category:
+    fields:
+      id:
+        type: uuid
+        pk: true
+      name:
         type: string
         required: true
-      - name: description
-        type: string
 
-  - name: Enrollment  # Explicit join entity
-    properties:
-      - name: studentId
-        type: int
+  Customer:
+    fields:
+      id:
+        type: uuid
+        pk: true
+      name:
+        type: string
         required: true
-        primaryKey: true
-        foreignKey: Student.id
-        onDelete: Cascade        # <- Added here
-      - name: courseId
-        type: int
+      email:
+        type: string
+        unique: true
         required: true
-        primaryKey: true
-        foreignKey: Course.id
-        onDelete: Cascade        # <- Added here
-      - name: enrolledAt
+
+  Order:
+    fields:
+      id:
+        type: uuid
+        pk: true
+      customerId:
+        type: uuid
+        required: true
+      createdAt:
         type: datetime
         required: true
+    relations:
+      - kind: many-to-one
+        from: Order.customerId
+        to: Customer.id
+        onDelete: cascade
 
-queries:
-  - name: GetTopCoursesByTitle
-    entity: Course
-    type: top
-    count: 5
-    orderBy: title
+  OrderItem:
+    fields:
+      id:
+        type: uuid
+        pk: true
+      orderId:
+        type: uuid
+        required: true
+      productId:
+        type: uuid
+        required: true
+      quantity:
+        type: int
+        required: true
+    relations:
+      - kind: many-to-one
+        from: OrderItem.orderId
+        to: Order.id
+        onDelete: cascade
+      - kind: many-to-one
+        from: OrderItem.productId
+        to: Product.id
+        onDelete: cascade
 
-  - name: FilterStudentsByAge
-    entity: Student
-    type: filter
-    filter: "age > 21"
+  Tag:
+    fields:
+      id:
+        type: uuid
+        pk: true
+      name:
+        type: string
+        required: true
