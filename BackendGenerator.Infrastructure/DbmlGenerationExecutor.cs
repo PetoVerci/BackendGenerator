@@ -32,6 +32,7 @@ public class DbmlGenerationExecutor
     }
 
     //TODO : Figure out how to enable this to run on linux aswell -> make this app OS agnostic
+    //TODO : How to bundle the dbml2sql binaries into the packed application when published 
 
     public Result<string> Execute(string modelFilePath)
     {
