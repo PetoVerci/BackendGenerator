@@ -1,6 +1,6 @@
-﻿namespace BackendGenerator.Core.Models;
+﻿namespace BackendGenerator.Core.Models.hyml;
 
-public record Model
+public record HymlModel
 {
     public string Version { get; init; } = "1.0"; // default version
     public string Name { get; init; } = string.Empty;

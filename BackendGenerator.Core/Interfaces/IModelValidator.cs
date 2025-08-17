@@ -3,7 +3,7 @@ using FluentResults;
 
 namespace BackendGenerator.Core.Interfaces;
 
-public interface IModelParser
+public interface IModelValidator
 {
-    Result<HymlModel> Load(string path);
+    List<string> Validate(HymlModel m);
 }

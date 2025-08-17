@@ -1,43 +1,29 @@
-﻿using System;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using System.IO.Abstractions;
-using BackendGenerator.Core.Interfaces;
-using BackendGenerator.Infrastructure.Parsers;
-using BackendGenerator.Infrastructure.Validators;
+﻿using BackendGenerator.Core.Interfaces;
+using BackendGenerator.Infrastructure;
 using BackendGenerator.Infrastructure.Emmiters;
-
+using BackendGenerator.Infrastructure.FileWriters;
+using BackendGenerator.Infrastructure.Parsers;
+using BackendGenerator.Infrastructure.Schema;
+using BackendGenerator.Infrastructure.Validators;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System.IO.Abstractions;
 
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // Register services (DI)
 builder.Services.AddSingleton<IFileSystem, FileSystem>();
-builder.Services.AddSingleton<IValidator, HymlModelValidator>();
+builder.Services.AddSingleton<IModelValidator, HymlModelValidator>();
 builder.Services.AddTransient<IModelParser, HymlModelParser>();
+builder.Services.AddSingleton<ISchemaBuilder, SchemaBuilder>();
 builder.Services.AddSingleton<DbmlEmiter>();
+builder.Services.AddSingleton<DbmlGenerationExecutor>();
+builder.Services.AddSingleton<DbmlFileWriter>();
+builder.Services.AddSingleton<CommandRunner>();
 
 var host = builder.Build();
 
-// Resolve service
-var parser = host.Services.GetRequiredService<IModelParser>();
-var validator = host.Services.GetRequiredService<IValidator>();
-var emmiter = host.Services.GetRequiredService<DbmlEmiter>();
+var executor = host.Services.GetRequiredService<DbmlGenerationExecutor>();
 
-
-var parseResult = parser.Load("model.yaml");
-
-
-if (parseResult.IsFailed)
-{
-    Console.WriteLine(parseResult.Errors.ToString());
-}
-var model = parseResult.Value;
-var validation = validator.Validate(model);
-
-
-var emmit = emmiter.Emit(model);
-
-
-
-Console.WriteLine($"Parsed {model.Entities.Count} entities.");
+executor.Execute("model.yaml");

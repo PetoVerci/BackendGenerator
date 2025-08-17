@@ -1,38 +1,77 @@
 ﻿using BackendGenerator.Core.Interfaces;
-using BackendGenerator.Core.Models;
-using FluentResults;
+using BackendGenerator.Core.Models.hyml;
 
 namespace BackendGenerator.Infrastructure.Validators;
 
-public class HymlModelValidator : IValidator
+public class HymlModelValidator : IModelValidator
 {
-    public Result<List<string>> Validate(Model m)
+    public List<string> Validate(HymlModel m)
     {
-        var errs = new List<string>();
-        if (string.IsNullOrWhiteSpace(m.Version)) errs.Add("version is required");
-        if (string.IsNullOrWhiteSpace(m.Name)) errs.Add("name is required");
-        if (m.Entities is null || m.Entities.Count == 0) errs.Add("at least one entity is required");
+        var errors = new List<string>();
 
-        // Check PKs
-        foreach (var (en, e) in m.Entities)
+        ValidateMetadata(m, errors);
+        ValidateEntities(m, errors);
+        ValidateRelations(m, errors);
+
+        return errors;
+    }
+
+    private void ValidateMetadata(HymlModel m, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(m.Version))
+            errors.Add("Model: version is required.");
+
+        if (string.IsNullOrWhiteSpace(m.Name))
+            errors.Add("Model: name is required.");
+    }
+
+    private void ValidateEntities(HymlModel m, List<string> errors)
+    {
+        if (m.Entities == null || m.Entities.Count == 0)
         {
-            var pkCount = e.Fields.Values.Count(f => f.Pk);
-            if (pkCount == 0) errs.Add($"entity {en} must have a primary key");
+            errors.Add("Model: at least one entity is required.");
+            return;
         }
 
-        // Basic relation target checks
-        if (m.Entities != null)
-            foreach (var (en, e) in m.Entities)
+        foreach (var (entityName, entity) in m.Entities)
+        {
+            ValidatePrimaryKeys(entityName, entity, errors);
+        }
+    }
+
+    private void ValidatePrimaryKeys(string entityName, Entity e, List<string> errors)
+    {
+        var pkCount = e.Fields.Values.Count(f => f.Pk);
+
+        if (pkCount == 0)
+            errors.Add($"Entity {entityName}: must have a primary key.");
+    }
+
+    private void ValidateRelations(HymlModel m, List<string> errors)
+    {
+        if (m.Entities == null) return;
+
+        foreach (var (entityName, entity) in m.Entities)
+        {
+            if (entity.Relations == null) continue;
+
+            foreach (var relation in entity.Relations)
             {
-                if (e.Relations == null) continue;
-                foreach (var r in e.Relations)
+                var toEntityName = relation.To.Split('.')[0];
+                if (!m.Entities.ContainsKey(toEntityName))
                 {
-                    var toEntity = r.To.Split('.')[0];
-                    if (!m.Entities.ContainsKey(toEntity))
-                        errs.Add($"relation from {en} -> {r.To} references missing entity {toEntity}");
+                    errors.Add($"Relation {entityName}.{relation.From} -> {relation.To}: references missing entity {toEntityName}.");
+                }
+                else
+                {
+                    // Optional: Check if the target column exists
+                    var toCol = relation.To.Contains(".") ? relation.To.Split('.')[1] : "id";
+                    if (!m.Entities[toEntityName].Fields.ContainsKey(toCol))
+                    {
+                        errors.Add($"Relation {entityName}.{relation.From} -> {relation.To}: target column {toCol} not found in {toEntityName}.");
+                    }
                 }
             }
-
-        return errs;
+        }
     }
 }
