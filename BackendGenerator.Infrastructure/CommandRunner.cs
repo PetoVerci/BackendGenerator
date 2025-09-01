@@ -4,7 +4,7 @@ using System.Diagnostics;
 
 public class CommandRunner : ICommandRunner
 {
-    public CommandResult RunCommand(string command, string args)
+    public CommandResult RunCommand(string command, string args, string? workingDirectory = null)
     {
         var process = new Process
         {
@@ -15,7 +15,8 @@ public class CommandRunner : ICommandRunner
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                WorkingDirectory = workingDirectory ?? Environment.CurrentDirectory
             }
         };
 

@@ -95,6 +95,11 @@ public class DbmlGenerationExecutor
             $"exec -i {model.Name}-db psql -U postgres -d {model.Name} -f /tmp/{model.Name}.sql"
         );
 
+
+        WebApiProjectGenerator webApiGenerator = new(_commandRunner);
+
+        webApiGenerator.Execute();
+
         return Result.Ok($"Schema with {dbmlSchema}");
     }
 }
