@@ -1,69 +1,112 @@
-﻿using FluentResults;
-using Microsoft.EntityFrameworkCore;
-using System.Text;
+﻿using BackendGenerator.Infrastructure.FileWriters;
+using FluentResults;
+using Microsoft.Extensions.Logging;
+using System.IO.Abstractions;
 
 namespace BackendGenerator.Infrastructure;
 
 public class WebApiProjectGenerator
 {
     private readonly CommandRunner _commandRunner;
+    private readonly AppSettingsDbConnectionWriter _connectionWriter;
+    private readonly RepositoryGenerator _repositoryGenerator;
+    private readonly ILogger<WebApiProjectGenerator> _logger;
+    private readonly IFileSystem _fileSystem;
 
-    public WebApiProjectGenerator(CommandRunner commandRunner)
+    private readonly string[] necessaryPackages = new[]
+    {
+        "Npgsql.EntityFrameworkCore.PostgreSQL",
+        "Microsoft.EntityFrameworkCore.Design",
+        "Microsoft.EntityFrameworkCore.Tools"
+    };
+
+    public WebApiProjectGenerator(CommandRunner commandRunner, AppSettingsDbConnectionWriter connectionWriter,
+        ILogger<WebApiProjectGenerator> logger, IFileSystem fileSystem, RepositoryGenerator repositoryGenerator)
     {
         _commandRunner = commandRunner;
+        _connectionWriter = connectionWriter;
+        _logger = logger;
+        _fileSystem = fileSystem;
+        _repositoryGenerator = repositoryGenerator;
     }
 
-    public Result Execute()
+    public Result Execute(string projectGenerationPath, string applicationName, string dbConnectionString)
     {
-        string tempFolder = Path.Combine(Path.GetTempPath(), "ShopApi_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempFolder);
+        string projectName = $"{applicationName}Api";
+        string projectPath = _fileSystem.Path.Combine(projectGenerationPath, projectName);
+        string dbContextName = $"{applicationName}DbContext";
 
-        string projectName = "ShopApi";
-        string projectPath = Path.Combine(tempFolder, projectName);
-        string dbContextName = "ShopDbContext";
-        string connectionString = "Host=localhost;Database=Shop;Username=postgres;Password=postgres";
-
-
-
-        var result = _commandRunner.RunCommand("dotnet", $"new webapi -o \"{projectPath}\" -n {projectName}");
-        Console.WriteLine(result.Output);
-        if (result.ExitCode != 0) Console.WriteLine(result.Error);
-
-
-
-
-        var packages = new[]
-{
-    "Npgsql.EntityFrameworkCore.PostgreSQL",
-    "Microsoft.EntityFrameworkCore.Design",
-    "Microsoft.EntityFrameworkCore.Tools"
-};
-        foreach (var pkg in packages)
+        // Helper for running commands
+        Result RunAndCheck(string command, string args, string? workingDir = null)
         {
-            var res = _commandRunner.RunCommand("dotnet", $"add \"{projectPath}\" package {pkg}");
-            Console.WriteLine(res.Output);
-            if (res.ExitCode != 0) Console.WriteLine(res.Error);
+            var result = _commandRunner.RunCommand(command, args, workingDir);
+            if (result.ExitCode != 0)
+            {
+                _logger.LogError("Command '{command} {args}' failed: {error}", command, args, result.Error);
+                return Result.Fail(result.Error);
+            }
+            return Result.Ok();
         }
-        var path = $"{projectPath}\\Models";
 
-        var scaffoldResult = _commandRunner.RunCommand(
-            "dotnet",
-            $"ef dbcontext scaffold \"{connectionString}\" Npgsql.EntityFrameworkCore.PostgreSQL -o Models -c {dbContextName} --force",
-            projectPath // 👈 ensure we're inside the project folder
-        );
+        try
+        {
+            // Prepare project folder
+            if (_fileSystem.Directory.Exists(projectGenerationPath))
+            {
+                _logger.LogWarning("Specified directory '{projectPath}' exists. Deleting old content...", projectGenerationPath);
+                _fileSystem.Directory.Delete(projectGenerationPath, true);
+            }
+            _fileSystem.Directory.CreateDirectory(projectGenerationPath);
 
+            // Create web API project
+            var apiResult = RunAndCheck("dotnet", $"new webapi -o \"{projectPath}\" -n {projectName}");
+            if (apiResult.IsFailed) return apiResult;
 
-        Console.WriteLine(scaffoldResult.Output);
-        if (scaffoldResult.ExitCode != 0) Console.WriteLine(scaffoldResult.Error);
+            // Install necessary packages
+            foreach (var pkg in necessaryPackages)
+            {
+                var pkgResult = RunAndCheck("dotnet", $"add \"{projectPath}\" package {pkg}");
+                if (pkgResult.IsFailed) return pkgResult;
+            }
 
+            // Scaffold DbContext and entities
+            var scaffoldResult = RunAndCheck(
+                "dotnet",
+                $"ef dbcontext scaffold \"{dbConnectionString}\" Npgsql.EntityFrameworkCore.PostgreSQL --output-dir Models --context-dir Data -c {dbContextName} --no-onconfiguring --force",
+                projectPath
+            );
+            if (scaffoldResult.IsFailed) return scaffoldResult;
 
+            // Write connection string to appsettings
+            string appsettingsPath = _fileSystem.Path.Combine(projectPath, "appsettings.Development.json");
+            var connResult = _connectionWriter.WriteToFile(appsettingsPath, dbConnectionString);
+            if (connResult.IsFailed)
+            {
+                _logger.LogError("Failed to write connection string to appsettings file");
+                return connResult;
+            }
 
-        string appSettingsPath = Path.Combine(projectPath, "appsettings.json");
-        dynamic appSettings = Newtonsoft.Json.JsonConvert.DeserializeObject(File.ReadAllText(appSettingsPath));
-        appSettings.ConnectionStrings ??= new Newtonsoft.Json.Linq.JObject();
-        appSettings.ConnectionStrings.DefaultConnection = connectionString;
-        File.WriteAllText(appSettingsPath, Newtonsoft.Json.JsonConvert.SerializeObject(appSettings, Newtonsoft.Json.Formatting.Indented));
+            // Load repository templates
+            string repoTemplate = _fileSystem.File.ReadAllText("Resources/RepositoryTemplate");
+            string repoInterfaceTemplate = _fileSystem.File.ReadAllText("Resources/IRepositoryTemplate");
 
-        return Result.Ok();
+            // Retrieve entity names
+            var entityFiles = _fileSystem.Directory.GetFiles(_fileSystem.Path.Combine(projectPath, "Models"), "*.cs");
+            var entityNames = entityFiles.Select(_fileSystem.Path.GetFileNameWithoutExtension);
+
+            // Generate repositories
+            string repositoryFolderPath = _fileSystem.Path.Combine(projectPath, "Repositories");
+            _fileSystem.Directory.CreateDirectory(repositoryFolderPath);
+
+            _repositoryGenerator.EmitRepositoryInterface(repositoryFolderPath, repoInterfaceTemplate, projectName);
+            _repositoryGenerator.EmitRepositories(entityNames, repositoryFolderPath, repoTemplate, projectName, dbContextName);
+
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An unexpected error occurred during project generation.");
+            return Result.Fail(ex.Message);
+        }
     }
 }

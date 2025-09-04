@@ -13,11 +13,11 @@ internal class DockerContainerUtils
         var start = DateTime.UtcNow;
         while (true)
         {
-            var result = commandRunner.RunCommand("docker", $"exec {containerName}-db pg_isready -U postgres");
+            var result = commandRunner.RunCommand("docker", $"exec {containerName} pg_isready -U postgres");
             if (result.ExitCode == 0) return;
 
             if ((DateTime.UtcNow - start).TotalSeconds > timeoutSeconds)
-                throw new PostgresNotReadyException($"PostgreSQL container '{containerName}-db' did not become ready in time.");
+                throw new PostgresNotReadyException($"PostgreSQL container '{containerName}' did not become ready in time.");
 
             Thread.Sleep(intervalMs);
         }

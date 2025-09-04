@@ -12,7 +12,7 @@ public class DbmlFileWriter : IFileWriter
         _fileSystem = fileSystem;
     }
 
-    public Result CreateFile(string path, string content)
+    public Result WriteToFile(string path, string content)
     {
         try
         {

@@ -1,0 +1,99 @@
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using {{PROJECTNAME}}.Models;
+using {{PROJECTNAME}}.Data;
+
+namespace {{NAMESPACE}}
+{
+    public interface I{{ENTITY}}Repository : IRepository<{{ENTITY}}>
+    {
+    }
+
+    public class {{ENTITY}}Repository : I{{ENTITY}}Repository
+    {
+        private readonly {{DATABASECONTEXT}} _context;
+        private readonly ILogger<{{ENTITY}}Repository> _logger;
+
+        public {{ENTITY}}Repository({{DATABASECONTEXT}} context, ILogger<{{ENTITY}}Repository> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        public async Task<IEnumerable<{{ENTITY}}>> GetAll()
+        {
+            try
+            {
+                return await _context.Set<{{ENTITY}}>().ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all {{ENTITY}} items");
+                throw;
+            }
+        }
+
+        public async Task<{{ENTITY}}?> GetById(int id)
+        {
+            try
+            {
+                return await _context.Set<{{ENTITY}}>().FindAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching {{ENTITY}} with id {Id}", id);
+                throw;
+            }
+        }
+
+        public async Task<{{ENTITY}}?> Add({{ENTITY}} entity)
+        {
+            try
+            {
+                await _context.Set<{{ENTITY}}>().AddAsync(entity);
+                await _context.SaveChangesAsync();
+                return entity;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding new {{ENTITY}}");
+                throw;
+            }
+        }
+
+        public async Task<bool> Delete(int id)
+        {
+            try
+            {
+                var entity = await _context.Set<{{ENTITY}}>().FindAsync(id);
+                if (entity == null) return false;
+
+                _context.Set<{{ENTITY}}>().Remove(entity);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting {{ENTITY}} with id {Id}", id);
+                throw;
+            }
+        }
+
+        public async Task<bool> Update({{ENTITY}} entity)
+        {
+            try
+            {
+                _context.Set<{{ENTITY}}>().Update(entity);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating {{ENTITY}} with id {Id}", entity.Id);
+                throw;
+            }
+        }
+    }
+}

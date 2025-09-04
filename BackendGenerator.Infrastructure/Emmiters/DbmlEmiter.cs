@@ -12,8 +12,6 @@ public class DbmlEmiter : IEmiter
 {
     public string Emit(TableRegistry tableRegistry)
     {
-
-        // 3. Emit DBML
         var sb = new StringBuilder();
 
         // Emit all tables first (sorted alphabetically for consistency)

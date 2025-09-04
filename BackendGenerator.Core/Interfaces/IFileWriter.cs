@@ -4,5 +4,5 @@ namespace BackendGenerator.Core.Interfaces;
 
 public interface IFileWriter
 {
-    Result CreateFile(string path, string content);
+    Result WriteToFile(string path, string content);
 }

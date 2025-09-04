@@ -3,6 +3,7 @@ using BackendGenerator.Core.Models.hyml;
 using FluentResults;
 using Microsoft.Extensions.Logging;
 using System.IO.Abstractions;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -64,7 +65,7 @@ public class HymlModelParser : IModelParser
             return Result.Ok(model);
         }
 
-        catch (YamlDotNet.Core.YamlException ye)
+        catch (YamlException ye)
         {
             var line = ye.Start.Line;  // 1-based line number where error occurred
             var column = ye.Start.Column;

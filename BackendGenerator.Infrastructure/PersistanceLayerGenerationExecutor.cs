@@ -10,7 +10,7 @@ using System.IO.Abstractions;
 
 namespace BackendGenerator.Infrastructure;
 
-public class DbmlGenerationExecutor
+public class PersistanceLayerGenerationExecutor
 {
     private readonly IModelParser _modelParser;
     private readonly ISchemaBuilder _schemaBuilder;
@@ -18,9 +18,9 @@ public class DbmlGenerationExecutor
     private readonly DbmlFileWriter _writer;
     private readonly CommandRunner _commandRunner;
     private readonly IFileSystem _fileSystem;
-    private readonly ILogger<DbmlGenerationExecutor> _logger;
-    public DbmlGenerationExecutor(IModelParser modelParser, ISchemaBuilder schemaBuilder, DbmlEmiter dbmlEmiter,
-        ILogger<DbmlGenerationExecutor> logger, DbmlFileWriter writer, CommandRunner commandRunner, IFileSystem fileSystem)
+    private readonly ILogger<PersistanceLayerGenerationExecutor> _logger;
+    public PersistanceLayerGenerationExecutor(IModelParser modelParser, ISchemaBuilder schemaBuilder, DbmlEmiter dbmlEmiter,
+        ILogger<PersistanceLayerGenerationExecutor> logger, DbmlFileWriter writer, CommandRunner commandRunner, IFileSystem fileSystem)
     {
         _modelParser = modelParser;
         _schemaBuilder = schemaBuilder;
@@ -54,10 +54,10 @@ public class DbmlGenerationExecutor
         string dbmlOutputFilePath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.dbml");
 
 
-        //persiste dbml file
+        //persist dbml file
         TableRegistry schema = _schemaBuilder.Build(model);
         string dbmlSchema = _dbmlEmiter.Emit(schema);
-        Result schemaWritten = _writer.CreateFile(dbmlOutputFilePath, dbmlSchema);
+        Result schemaWritten = _writer.WriteToFile(dbmlOutputFilePath, dbmlSchema);
 
 
         if (schemaWritten.IsFailed)
@@ -68,6 +68,8 @@ public class DbmlGenerationExecutor
 
         //assign .sql file path
         string sqlOutputPath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.sql");
+        string databaseName = $"{model.Name.ToLower()}_db";
+        string dockerContainerName = $"{model.Name}-db";
 
         // Generate SQL from DBML
         _commandRunner.RunCommand(
@@ -78,28 +80,23 @@ public class DbmlGenerationExecutor
         // Start PostgreSQL container
         _commandRunner.RunCommand(
             "docker",
-            $"run --name {model.Name}-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB={model.Name} -p 5432:5432 -d postgres"
+            $"run --name {dockerContainerName} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB={databaseName} -p 5432:5432 -d postgres"
         );
 
         // Copy SQL file into container
         _commandRunner.RunCommand(
             "docker",
-            $"cp \"{sqlOutputPath}\" {model.Name}-db:/tmp/{model.Name}.sql"
+            $"cp \"{sqlOutputPath}\" {dockerContainerName}:/tmp/{model.Name}.sql"
         );
 
-        DockerContainerUtils.WaitForPostgresReady(model.Name, _commandRunner);
+        DockerContainerUtils.WaitForPostgresReady(dockerContainerName, _commandRunner);
 
         // Execute SQL inside container
         _commandRunner.RunCommand(
             "docker",
-            $"exec -i {model.Name}-db psql -U postgres -d {model.Name} -f /tmp/{model.Name}.sql"
+            $"exec -i {dockerContainerName} psql -U postgres -d {databaseName} -f /tmp/{model.Name}.sql"
         );
 
-
-        WebApiProjectGenerator webApiGenerator = new(_commandRunner);
-
-        webApiGenerator.Execute();
-
-        return Result.Ok($"Schema with {dbmlSchema}");
+        return Result.Ok($"{model.Name}");
     }
 }
