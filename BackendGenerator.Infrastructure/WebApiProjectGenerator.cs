@@ -10,6 +10,7 @@ public class WebApiProjectGenerator
     private readonly CommandRunner _commandRunner;
     private readonly AppSettingsDbConnectionWriter _connectionWriter;
     private readonly RepositoryGenerator _repositoryGenerator;
+    private readonly ProgramGenerator _programGenerator;
     private readonly ILogger<WebApiProjectGenerator> _logger;
     private readonly IFileSystem _fileSystem;
 
@@ -17,17 +18,22 @@ public class WebApiProjectGenerator
     {
         "Npgsql.EntityFrameworkCore.PostgreSQL",
         "Microsoft.EntityFrameworkCore.Design",
-        "Microsoft.EntityFrameworkCore.Tools"
+        "Microsoft.EntityFrameworkCore.Tools",
+        "Swashbuckle.AspNetCore",
+        "Microsoft.VisualStudio.Web.CodeGeneration.Design",
+        "Microsoft.EntityFrameworkCore.SqlServer"
     };
 
     public WebApiProjectGenerator(CommandRunner commandRunner, AppSettingsDbConnectionWriter connectionWriter,
-        ILogger<WebApiProjectGenerator> logger, IFileSystem fileSystem, RepositoryGenerator repositoryGenerator)
+        ILogger<WebApiProjectGenerator> logger, IFileSystem fileSystem, RepositoryGenerator repositoryGenerator,
+        ProgramGenerator programGenerator)
     {
         _commandRunner = commandRunner;
         _connectionWriter = connectionWriter;
         _logger = logger;
         _fileSystem = fileSystem;
         _repositoryGenerator = repositoryGenerator;
+        _programGenerator = programGenerator;
     }
 
     public Result Execute(string projectGenerationPath, string applicationName, string dbConnectionString)
@@ -69,6 +75,9 @@ public class WebApiProjectGenerator
                 if (pkgResult.IsFailed) return pkgResult;
             }
 
+            // install aspnet code generator
+            var toolInstall = RunAndCheck("dotnet", "tool install --global dotnet-aspnet-codegenerator");
+
             // Scaffold DbContext and entities
             var scaffoldResult = RunAndCheck(
                 "dotnet",
@@ -90,6 +99,9 @@ public class WebApiProjectGenerator
             string repoTemplate = _fileSystem.File.ReadAllText("Resources/RepositoryTemplate");
             string repoInterfaceTemplate = _fileSystem.File.ReadAllText("Resources/IRepositoryTemplate");
 
+            // Load Program.cs template
+            string programTemplate = _fileSystem.File.ReadAllText("Resources/ProgramTemplate");
+
             // Retrieve entity names
             var entityFiles = _fileSystem.Directory.GetFiles(_fileSystem.Path.Combine(projectPath, "Models"), "*.cs");
             var entityNames = entityFiles.Select(_fileSystem.Path.GetFileNameWithoutExtension);
@@ -101,6 +113,7 @@ public class WebApiProjectGenerator
             _repositoryGenerator.EmitRepositoryInterface(repositoryFolderPath, repoInterfaceTemplate, projectName);
             _repositoryGenerator.EmitRepositories(entityNames, repositoryFolderPath, repoTemplate, projectName, dbContextName);
 
+            _programGenerator.EmitProgramFile(projectPath, programTemplate, projectName, dbContextName);
             return Result.Ok();
         }
         catch (Exception ex)

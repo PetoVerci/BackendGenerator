@@ -25,6 +25,7 @@ builder.Services.AddSingleton<DbmlFileWriter>();
 builder.Services.AddSingleton<AppSettingsDbConnectionWriter>();
 builder.Services.AddSingleton<WorkflowExecutor>();
 builder.Services.AddSingleton<CommandRunner>();
+builder.Services.AddSingleton<ProgramGenerator>();
 
 var host = builder.Build();
 

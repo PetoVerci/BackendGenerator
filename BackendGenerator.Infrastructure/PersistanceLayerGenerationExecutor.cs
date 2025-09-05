@@ -72,7 +72,7 @@ public class PersistanceLayerGenerationExecutor
         string dockerContainerName = $"{model.Name}-db";
 
         // Generate SQL from DBML
-        _commandRunner.RunCommand(
+        var a = _commandRunner.RunCommand(
             "dbml2sql.cmd",
             $"\"{dbmlOutputFilePath}\" -o \"{sqlOutputPath}\" -t postgres"
         );

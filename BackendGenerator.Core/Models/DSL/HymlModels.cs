@@ -12,7 +12,7 @@ public record Entity
 {
     public IDictionary<string, Field> Fields { get; init; } = new Dictionary<string, Field>();
     public IList<Relation>? Relations { get; init; }
-    public IList<string>? Traits { get; init; }
+    public bool GenerateCrudControllers {  get; init; }
 }
 
 public record Field
@@ -21,6 +21,7 @@ public record Field
     public bool Required { get; init; } = false;
     public bool Pk { get; init; } = false;
     public bool Unique { get; init; } = false;
+    public bool PkGenerated { get; init; } = true;
 }
 
 public record Relation
@@ -29,7 +30,7 @@ public record Relation
     public string From { get; init; } = string.Empty;           // e.g., "Product.id"
     public string To { get; init; } = string.Empty;             // e.g., "Category.id"
     public string? Through { get; init; }                        // join table for n-n
-    public string? OnDelete { get; init; }                       // e.g., "cascade" | "restrict" | "set_null"
+    public string? OnDelete { get; init; }                       // e.g., "cascade" | "restrict" | "set null"
     public string? OnUpdate { get; init; }                       // e.g., "cascade" | "restrict"
 }
 

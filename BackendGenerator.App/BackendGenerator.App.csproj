@@ -6,18 +6,42 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+
+	  <PublishSingleFile>true</PublishSingleFile>
+	  <SelfContained>true</SelfContained>
+	  <!-- includes .NET runtime -->
+	  <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+	  <!-- or linux-x64, osx-x64 -->
+	  <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+	  <PublishTrimmed>true</PublishTrimmed>
+	  <!-- optional, reduces file size -->
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\IRepositoryTemplate">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Resources\RepositoryTemplate">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
+    <None Remove="model.yaml" />
+    <None Remove="Resources\ProgramTemplate" />
   </ItemGroup>
 
-  <ItemGroup>
+	<ItemGroup>
+		<Content Include="model.yaml">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+
+		<Content Include="Resources\IRepositoryTemplate">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+
+		<Content Include="Resources\ProgramTemplate">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+
+		<Content Include="Resources\RepositoryTemplate">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+
+	<ItemGroup>
     <PackageReference Include="FluentResults" Version="4.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
@@ -29,12 +53,6 @@
   <ItemGroup>
     <ProjectReference Include="..\BackendGenerator.Core\BackendGenerator.Core.csproj" />
     <ProjectReference Include="..\BackendGenerator.Infrastructure\BackendGenerator.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="model.yaml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>

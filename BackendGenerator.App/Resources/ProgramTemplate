@@ -1,0 +1,45 @@
+using Microsoft.EntityFrameworkCore;
+using {{PROJECTNAME}}.Data;        // DbContext namespace
+using {{PROJECTNAME}}.Repositories; // Repository interfaces & implementations namespace
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllers(); // Enables controllers
+builder.Services.AddEndpointsApiExplorer(); // Optional, for Swagger/OpenAPI
+builder.Services.AddSwaggerGen();             // Optional, Swagger/OpenAPI UI
+
+// Register DbContext using connection string from appsettings.json
+builder.Services.AddDbContext<{{DATABASECONTEXT}}>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Automatically register all repositories
+var repositoryAssembly = typeof(IRepository<>).Assembly;
+var repositoryTypes = repositoryAssembly.GetTypes()
+    .Where(t => t.IsClass && !t.IsAbstract && t.GetInterfaces().Any(i => i.Name.StartsWith("I") && i.Name.EndsWith("Repository")));
+
+foreach (var implType in repositoryTypes)
+{
+    var interfaceType = implType.GetInterfaces().FirstOrDefault(i => i.Name.EndsWith("Repository"));
+    if (interfaceType != null)
+    {
+        builder.Services.AddScoped(interfaceType, implType);
+    }
+}
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization(); // optional, add authentication/authorization if needed
+
+app.MapControllers(); // Maps controller endpoints
+
+app.Run();

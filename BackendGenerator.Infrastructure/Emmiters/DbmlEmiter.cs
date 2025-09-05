@@ -15,30 +15,16 @@ public class DbmlEmiter : IEmiter
         var sb = new StringBuilder();
 
         // Emit all tables first (sorted alphabetically for consistency)
-        foreach (var table in tableRegistry.TableDefinitions.Values.OrderBy(t => t.Name))
-        {
-            sb.AppendLine($"Table {table.Name} {{");
-
-            foreach (var (fname, f) in table.Fields.OrderBy(x => x.Key))
-            {
-                List<string> attrs = new();
-                if (f.Pk) attrs.Add("pk");
-                if (f.Unique) attrs.Add("unique");
-                if (f.Required || f.Pk) attrs.Add("not null");
-
-                sb.AppendLine($"  {fname} {MapType(f.Type)} [{string.Join(", ", attrs)}]");
-            }
-
-            // Emit unique composite indexes
-            foreach (var idx in table.UniqueIndexes)
-            {
-                sb.AppendLine($"  indexes {{ ({string.Join(", ", idx)}) [unique] }}");
-            }
-
-            sb.AppendLine("}\n");
-        }
+        EmitTables(tableRegistry, sb);
 
         // Emit references at the very end
+        EmitReferences(tableRegistry, sb);
+
+        return sb.ToString();
+    }
+
+    private void EmitReferences(TableRegistry tableRegistry, StringBuilder sb)
+    {
         foreach (var table in tableRegistry.TableDefinitions.Values.OrderBy(t => t.Name))
         {
             foreach (var r in table.References)
@@ -51,11 +37,41 @@ public class DbmlEmiter : IEmiter
                 sb.AppendLine($"Ref: {table.Name}.{r.FromColumn} > {r.ToTable}.{r.ToColumn}{actionStr}");
             }
         }
-
-        return sb.ToString();
     }
 
-    private string MapType(string t) => t.StartsWith("decimal(") ? t : t switch
+    private static void EmitTables(TableRegistry tableRegistry, StringBuilder sb)
+    {
+        foreach (var table in tableRegistry.TableDefinitions.Values.OrderBy(t => t.Name))
+        {
+            sb.AppendLine($"Table {table.Name} {{");
+
+            foreach (var (fname, f) in table.Fields.OrderBy(x => x.Key))
+            {
+                List<string> attrs = new();
+                if (f.Pk)
+                {
+                    attrs.Add("pk");
+                    if (f.PkGenerated)
+                    {
+                        attrs.Add("default: `gen_random_uuid()`"); //This is a solution for postgres specifically
+                    }
+                }
+                if (f.Unique) attrs.Add("unique");
+                if (f.Required || f.Pk) attrs.Add("not null");
+                sb.AppendLine($"  {fname} {MapType(f.Type)} [{string.Join(", ", attrs)}]");
+            }
+
+            // Emit unique composite indexes
+            foreach (var idx in table.UniqueIndexes)
+            {
+                sb.AppendLine($"  indexes {{ ({string.Join(", ", idx)}) [unique] }}");
+            }
+
+            sb.AppendLine("}\n");
+        }
+    }
+
+    private static string MapType(string t) => t.StartsWith("decimal(") ? t : t switch
     {
         "string" => "varchar",
         "text" => "text",
