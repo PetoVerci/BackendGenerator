@@ -69,7 +69,7 @@ public class HymlModelParser : IModelParser
         {
             var line = ye.Start.Line;  // 1-based line number where error occurred
             var column = ye.Start.Column;
-            var msg = $"HYML parse error at line {line}, column {column}: {ye.Message}";
+            var msg = $"HYML parse error at line {line}, column {column}: {ye.Message}, INNER EXCEPTION : {ye.InnerException}";
             _logger.LogError(ye, msg);
             return Result.Fail(msg);
         }

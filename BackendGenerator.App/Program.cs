@@ -22,6 +22,7 @@ builder.Services.AddSingleton<PersistanceLayerGenerationExecutor>();
 builder.Services.AddSingleton<WebApiProjectGenerator>();
 builder.Services.AddSingleton<RepositoryGenerator>();
 builder.Services.AddSingleton<DbmlFileWriter>();
+builder.Services.AddSingleton<SqlFileWriter>();
 builder.Services.AddSingleton<AppSettingsDbConnectionWriter>();
 builder.Services.AddSingleton<WorkflowExecutor>();
 builder.Services.AddSingleton<CommandRunner>();
@@ -31,4 +32,8 @@ var host = builder.Build();
 
 var executor = host.Services.GetRequiredService<WorkflowExecutor>();
 
-executor.Execute();
+var baseDir = AppContext.BaseDirectory;
+
+var pathToFile = Path.Combine(baseDir, "model.yaml");
+
+executor.Execute(pathToFile);

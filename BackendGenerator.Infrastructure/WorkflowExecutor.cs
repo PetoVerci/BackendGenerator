@@ -15,9 +15,9 @@ public class WorkflowExecutor
         _logger = logger;
     }
 
-    public void Execute()
+    public void Execute(string pathToModel)
     {
-        Result<string> databaseGenerationResult = _persistanceLayerGenerator.Execute("model.yaml");
+        Result<string> databaseGenerationResult = _persistanceLayerGenerator.Execute(pathToModel);
 
         if (databaseGenerationResult.IsFailed)
         {

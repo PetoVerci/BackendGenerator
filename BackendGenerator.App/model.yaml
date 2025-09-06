@@ -6,7 +6,7 @@ entities:
       id:
         type: uuid
         pk: true
-        pkgenerated: true
+        pkGenerated: true
       name:
         type: string
         required: true
@@ -15,4 +15,95 @@ entities:
         required: true
       stock:
         type: int
+        required: true
+      categoryId:
+        type: uuid
+        required: true
+    relations:
+      - kind: many-to-one
+        from: Product.categoryId
+        to: Category.id
+        onDelete: cascade
+      - kind: many-to-many
+        from: Product.id
+        to: Tag.id
+        through: ProductTag
+        onDelete: cascade
+
+  Category:
+    fields:
+      id:
+        type: uuid
+        pk: true
+        pkGenerated: true
+      name:
+        type: string
+        required: true
+
+  Customer:
+    fields:
+      id:
+        type: uuid
+        pk: true
+        pkGenerated: true
+      name:
+        type: string
+        required: true
+      email:
+        type: string
+        unique: true
+        required: true
+    generateCrudControllers: true
+
+  Order:
+    fields:
+      id:
+        type: uuid
+        pk: true
+        pkGenerated: true
+      customerId:
+        type: uuid
+        required: true
+      createdAt:
+        type: datetime
+        required: true
+    relations:
+      - kind: many-to-one
+        from: Order.customerId
+        to: Customer.id
+        onDelete: cascade
+
+  OrderItem:
+    fields:
+      id:
+        type: uuid
+        pk: true
+        pkGenerated: true
+      orderId:
+        type: uuid
+        required: true
+      productId:
+        type: uuid
+        required: true
+      quantity:
+        type: int
+        required: true
+    relations:
+      - kind: many-to-one
+        from: OrderItem.orderId
+        to: Order.id
+        onDelete: cascade
+      - kind: many-to-one
+        from: OrderItem.productId
+        to: Product.id
+        onDelete: cascade
+
+  Tag:
+    fields:
+      id:
+        type: uuid
+        pk: true
+        pkGenerated: true
+      name:
+        type: string
         required: true

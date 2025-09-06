@@ -19,8 +19,9 @@ public class PersistanceLayerGenerationExecutor
     private readonly CommandRunner _commandRunner;
     private readonly IFileSystem _fileSystem;
     private readonly ILogger<PersistanceLayerGenerationExecutor> _logger;
+    private readonly SqlFileWriter _sqlFileWriter;
     public PersistanceLayerGenerationExecutor(IModelParser modelParser, ISchemaBuilder schemaBuilder, DbmlEmiter dbmlEmiter,
-        ILogger<PersistanceLayerGenerationExecutor> logger, DbmlFileWriter writer, CommandRunner commandRunner, IFileSystem fileSystem)
+        ILogger<PersistanceLayerGenerationExecutor> logger, DbmlFileWriter writer, CommandRunner commandRunner, IFileSystem fileSystem, SqlFileWriter sqlFileWriter)
     {
         _modelParser = modelParser;
         _schemaBuilder = schemaBuilder;
@@ -29,6 +30,7 @@ public class PersistanceLayerGenerationExecutor
         _writer = writer;
         _commandRunner = commandRunner;
         _fileSystem = fileSystem;
+        _sqlFileWriter = sqlFileWriter;
     }
 
     //TODO : Figure out how to enable this to run on linux aswell -> make this app OS agnostic
@@ -65,17 +67,16 @@ public class PersistanceLayerGenerationExecutor
             return Result.Fail(string.Join(", ", schemaWritten.Errors.Select(e => e.Message)));
         }
 
+        var b = SqlEmitter.Emit(schema);
+        string sqlOutputFilePath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.sql");
+
+        Result sqlWritten = _sqlFileWriter.WriteToFile(sqlOutputFilePath, b);
 
         //assign .sql file path
         string sqlOutputPath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.sql");
         string databaseName = $"{model.Name.ToLower()}_db";
         string dockerContainerName = $"{model.Name}-db";
 
-        // Generate SQL from DBML
-        var a = _commandRunner.RunCommand(
-            "dbml2sql.cmd",
-            $"\"{dbmlOutputFilePath}\" -o \"{sqlOutputPath}\" -t postgres"
-        );
 
         // Start PostgreSQL container
         _commandRunner.RunCommand(

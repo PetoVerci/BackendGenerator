@@ -1,58 +1,40 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-
-	  <PublishSingleFile>true</PublishSingleFile>
-	  <SelfContained>true</SelfContained>
-	  <!-- includes .NET runtime -->
-	  <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-	  <!-- or linux-x64, osx-x64 -->
-	  <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
-	  <PublishTrimmed>true</PublishTrimmed>
-	  <!-- optional, reduces file size -->
-  </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="model.yaml" />
-    <None Remove="Resources\ProgramTemplate" />
-  </ItemGroup>
-
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<!-- Self-contained runtime -->
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<Platforms>AnyCPU;x64</Platforms>
+		<PublishSingleFile>true</PublishSingleFile>
+		
+		<!-- IMPORTANT FOR YAMLDOTNET LIB TO WORK WITH PUBLISHED (took me way too long to debug...) -->
+		<PublishTrimmed>false</PublishTrimmed>
+	</PropertyGroup>
 	<ItemGroup>
+		<!-- Copy the YAML file -->
 		<Content Include="model.yaml">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToPublishDirectory>Always</CopyToPublishDirectory>
 		</Content>
-
-		<Content Include="Resources\IRepositoryTemplate">
+		<!-- Copy the Resources folder and everything inside it -->
+		<Content Include="Resources\**\*">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-
-		<Content Include="Resources\ProgramTemplate">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-
-		<Content Include="Resources\RepositoryTemplate">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<CopyToPublishDirectory>Always</CopyToPublishDirectory>
 		</Content>
 	</ItemGroup>
-
-
 	<ItemGroup>
-    <PackageReference Include="FluentResults" Version="4.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
-    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-    <PackageReference Include="System.IO.Abstractions" Version="22.0.15" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\BackendGenerator.Core\BackendGenerator.Core.csproj" />
-    <ProjectReference Include="..\BackendGenerator.Infrastructure\BackendGenerator.Infrastructure.csproj" />
-  </ItemGroup>
-
+		<PackageReference Include="FluentResults" Version="4.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+		<PackageReference Include="System.IO.Abstractions" Version="22.0.15" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\BackendGenerator.Core\BackendGenerator.Core.csproj" />
+		<ProjectReference Include="..\BackendGenerator.Infrastructure\BackendGenerator.Infrastructure.csproj" />
+	</ItemGroup>
 </Project>
