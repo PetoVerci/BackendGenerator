@@ -15,13 +15,11 @@ var builder = Host.CreateApplicationBuilder(args);
 // Register services (DI)
 builder.Services.AddSingleton<IFileSystem, FileSystem>();
 builder.Services.AddSingleton<IModelValidator, HymlModelValidator>();
-builder.Services.AddTransient<IModelParser, HymlModelParser>();
+builder.Services.AddTransient<HymlModelParser>();
 builder.Services.AddSingleton<ISchemaBuilder, SchemaBuilder>();
-builder.Services.AddSingleton<DbmlEmiter>();
 builder.Services.AddSingleton<PersistanceLayerGenerationExecutor>();
 builder.Services.AddSingleton<WebApiProjectGenerator>();
 builder.Services.AddSingleton<RepositoryGenerator>();
-builder.Services.AddSingleton<DbmlFileWriter>();
 builder.Services.AddSingleton<SqlFileWriter>();
 builder.Services.AddSingleton<AppSettingsDbConnectionWriter>();
 builder.Services.AddSingleton<WorkflowExecutor>();

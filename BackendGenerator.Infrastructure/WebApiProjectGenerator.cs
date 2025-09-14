@@ -14,15 +14,15 @@ public class WebApiProjectGenerator
     private readonly ILogger<WebApiProjectGenerator> _logger;
     private readonly IFileSystem _fileSystem;
 
-    private readonly string[] necessaryPackages = new[]
-    {
+    private readonly string[] necessaryPackages =
+    [
         "Npgsql.EntityFrameworkCore.PostgreSQL",
         "Microsoft.EntityFrameworkCore.Design",
         "Microsoft.EntityFrameworkCore.Tools",
         "Swashbuckle.AspNetCore",
         "Microsoft.VisualStudio.Web.CodeGeneration.Design",
         "Microsoft.EntityFrameworkCore.SqlServer"
-    };
+    ];
 
     public WebApiProjectGenerator(CommandRunner commandRunner, AppSettingsDbConnectionWriter connectionWriter,
         ILogger<WebApiProjectGenerator> logger, IFileSystem fileSystem, RepositoryGenerator repositoryGenerator,
@@ -36,23 +36,12 @@ public class WebApiProjectGenerator
         _programGenerator = programGenerator;
     }
 
-    public Result Execute(string projectGenerationPath, string applicationName, string dbConnectionString)
+    public Result Execute(string projectGenerationPath, string applicationName, string dbConnectionString,
+        List<string> generateRepositoriesFor, List<string> generateCrudControllersFor)
     {
         string projectName = $"{applicationName}Api";
         string projectPath = _fileSystem.Path.Combine(projectGenerationPath, projectName);
         string dbContextName = $"{applicationName}DbContext";
-
-        // Helper for running commands
-        Result RunAndCheck(string command, string args, string? workingDir = null)
-        {
-            var result = _commandRunner.RunCommand(command, args, workingDir);
-            if (result.ExitCode != 0)
-            {
-                _logger.LogError("Command '{command} {args}' failed: {error}", command, args, result.Error);
-                return Result.Fail(result.Error);
-            }
-            return Result.Ok();
-        }
 
         try
         {
@@ -95,25 +84,27 @@ public class WebApiProjectGenerator
                 return connResult;
             }
 
-            // Load repository templates
-            string repoTemplate = _fileSystem.File.ReadAllText("Resources/RepositoryTemplate");
-            string repoInterfaceTemplate = _fileSystem.File.ReadAllText("Resources/IRepositoryTemplate");
+            bool generateRepositories = generateRepositoriesFor.Any();
+            bool generateControllers = generateCrudControllersFor.Any();
+            // Decide which program template to choose
+            string correctProgramTemplateName = generateRepositories ? Constants.ProgramTemplateWithRepositories : Constants.ProgramTemplateNoRepositories;
 
             // Load Program.cs template
-            string programTemplate = _fileSystem.File.ReadAllText("Resources/ProgramTemplate");
+            string programTemplate = _fileSystem.File.ReadAllText(correctProgramTemplateName);
 
-            // Retrieve entity names
-            var entityFiles = _fileSystem.Directory.GetFiles(_fileSystem.Path.Combine(projectPath, "Models"), "*.cs");
-            var entityNames = entityFiles.Select(_fileSystem.Path.GetFileNameWithoutExtension);
 
-            // Generate repositories
-            string repositoryFolderPath = _fileSystem.Path.Combine(projectPath, "Repositories");
-            _fileSystem.Directory.CreateDirectory(repositoryFolderPath);
-
-            _repositoryGenerator.EmitRepositoryInterface(repositoryFolderPath, repoInterfaceTemplate, projectName);
-            _repositoryGenerator.EmitRepositories(entityNames, repositoryFolderPath, repoTemplate, projectName, dbContextName);
+            // Generate repositories if specified
+            if (generateRepositories)
+            {
+                GenerateRepositories(generateRepositoriesFor, projectName, projectPath, dbContextName);
+            }
 
             _programGenerator.EmitProgramFile(projectPath, programTemplate, projectName, dbContextName);
+
+            if (generateControllers)
+            {
+                GenerateControllers(generateCrudControllersFor, dbContextName , projectPath);
+            }
             return Result.Ok();
         }
         catch (Exception ex)
@@ -121,5 +112,50 @@ public class WebApiProjectGenerator
             _logger.LogError(ex, "An unexpected error occurred during project generation.");
             return Result.Fail(ex.Message);
         }
+    }
+
+    private void GenerateRepositories(List<string> generateRepositoriesFor, string projectName, string projectPath, string dbContextName)
+    {
+        // Load repository templates
+        string repoTemplate = _fileSystem.File.ReadAllText(Constants.RepositoryTemplate);
+        string repoInterfaceTemplate = _fileSystem.File.ReadAllText(Constants.IRepositoryTemplate);
+
+        string repositoryFolderPath = _fileSystem.Path.Combine(projectPath, "Repositories");
+        _fileSystem.Directory.CreateDirectory(repositoryFolderPath);
+
+        _repositoryGenerator.EmitRepositoryInterface(repositoryFolderPath, repoInterfaceTemplate, projectName);
+        _repositoryGenerator.EmitRepositories(generateRepositoriesFor, repositoryFolderPath, repoTemplate, projectName, dbContextName);
+    }
+
+    // Helper for running commands
+    private Result RunAndCheck(string command, string args, string? workingDir = null)
+    {
+        var result = _commandRunner.RunCommand(command, args, workingDir);
+        if (result.ExitCode != 0)
+        {
+            _logger.LogError("Command '{command} {args}' failed: {error}", command, args, result.Error);
+            return Result.Fail(result.Error);
+        }
+        return Result.Ok();
+    }
+
+    private Result<string> GenerateControllers(List<string> generateCrudControllersFor, string dbContextName, string projectPath)
+    {
+        const string ControllerCommandTemplate =
+"aspnet-codegenerator controller -name {CONTROLLER} -async -api -m {MODEL} -dc {DBCONTEXT} -outDir Controllers";
+
+        foreach (var entity in generateCrudControllersFor)
+        {
+            var controllerName = $"{entity}Controller";
+
+            var args = ControllerCommandTemplate
+                .Replace("{CONTROLLER}", controllerName)
+                .Replace("{MODEL}", entity)
+                .Replace("{DBCONTEXT}", dbContextName);
+
+            var controllerResult = RunAndCheck("dotnet", args, projectPath);
+            if (controllerResult.IsFailed) return controllerResult;
+        }
+        return Result.Ok();
     }
 }

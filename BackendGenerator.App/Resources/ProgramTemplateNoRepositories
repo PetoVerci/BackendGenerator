@@ -1,0 +1,30 @@
+using Microsoft.EntityFrameworkCore;
+using {{PROJECTNAME}}.Data;        // DbContext namespace
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllers(); // Enables controllers
+builder.Services.AddEndpointsApiExplorer(); // Optional, for Swagger/OpenAPI
+builder.Services.AddSwaggerGen();             // Optional, Swagger/OpenAPI UI
+
+// Register DbContext using connection string from appsettings.json
+builder.Services.AddDbContext<{{DATABASECONTEXT}}>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization(); // optional, add authentication/authorization if needed
+
+app.MapControllers(); // Maps controller endpoints
+
+app.Run();

@@ -15,6 +15,10 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<!-- Copy the YAML file -->
+		<Content Include="model2.yaml">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		  <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+		</Content>
 		<Content Include="model.yaml">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<CopyToPublishDirectory>Always</CopyToPublishDirectory>

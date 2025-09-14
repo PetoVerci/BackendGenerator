@@ -12,22 +12,16 @@ namespace BackendGenerator.Infrastructure;
 
 public class PersistanceLayerGenerationExecutor
 {
-    private readonly IModelParser _modelParser;
     private readonly ISchemaBuilder _schemaBuilder;
-    private readonly DbmlEmiter _dbmlEmiter;
-    private readonly DbmlFileWriter _writer;
     private readonly CommandRunner _commandRunner;
     private readonly IFileSystem _fileSystem;
     private readonly ILogger<PersistanceLayerGenerationExecutor> _logger;
     private readonly SqlFileWriter _sqlFileWriter;
-    public PersistanceLayerGenerationExecutor(IModelParser modelParser, ISchemaBuilder schemaBuilder, DbmlEmiter dbmlEmiter,
-        ILogger<PersistanceLayerGenerationExecutor> logger, DbmlFileWriter writer, CommandRunner commandRunner, IFileSystem fileSystem, SqlFileWriter sqlFileWriter)
+    public PersistanceLayerGenerationExecutor(ISchemaBuilder schemaBuilder,ILogger<PersistanceLayerGenerationExecutor> logger,
+        CommandRunner commandRunner, IFileSystem fileSystem, SqlFileWriter sqlFileWriter)
     {
-        _modelParser = modelParser;
         _schemaBuilder = schemaBuilder;
-        _dbmlEmiter = dbmlEmiter;
         _logger = logger;
-        _writer = writer;
         _commandRunner = commandRunner;
         _fileSystem = fileSystem;
         _sqlFileWriter = sqlFileWriter;
@@ -36,41 +30,18 @@ public class PersistanceLayerGenerationExecutor
     //TODO : Figure out how to enable this to run on linux aswell -> make this app OS agnostic
     //TODO : How to bundle the dbml2sql binaries into the packed application when published 
 
-    public Result<string> Execute(string modelFilePath)
+    public Result<string> Execute(HymlModel model)
     {
         //retrieve temp path for creating db files
         string tempPath = _fileSystem.Path.GetTempPath() ?? string.Empty;
 
-        //parse the model file
-        Result<HymlModel> parseResult = _modelParser.Load(modelFilePath);
-        if (parseResult.IsFailed)
-        {
-            var errors = parseResult.Errors.ToString();
-            _logger.LogError(errors);
-            return Result.Fail($"Failed while parsing model. errors : {errors}");
-        }
-        HymlModel model = parseResult.Value;
-
-
-        //retrieve dbml file path
-        string dbmlOutputFilePath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.dbml");
-
-
-        //persist dbml file
+        //persist sql file
         TableRegistry schema = _schemaBuilder.Build(model);
-        string dbmlSchema = _dbmlEmiter.Emit(schema);
-        Result schemaWritten = _writer.WriteToFile(dbmlOutputFilePath, dbmlSchema);
 
-
-        if (schemaWritten.IsFailed)
-        {
-            return Result.Fail(string.Join(", ", schemaWritten.Errors.Select(e => e.Message)));
-        }
-
-        var b = SqlEmitter.Emit(schema);
+        var emittedSql = SqlEmitter.Emit(schema);
         string sqlOutputFilePath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.sql");
 
-        Result sqlWritten = _sqlFileWriter.WriteToFile(sqlOutputFilePath, b);
+        Result sqlWritten = _sqlFileWriter.WriteToFile(sqlOutputFilePath, emittedSql);
 
         //assign .sql file path
         string sqlOutputPath = _fileSystem.Path.Combine(tempPath, $"{model.Name}.sql");
@@ -98,6 +69,6 @@ public class PersistanceLayerGenerationExecutor
             $"exec -i {dockerContainerName} psql -U postgres -d {databaseName} -f /tmp/{model.Name}.sql"
         );
 
-        return Result.Ok($"{model.Name}");
+        return Result.Ok($"{dockerContainerName}");
     }
 }

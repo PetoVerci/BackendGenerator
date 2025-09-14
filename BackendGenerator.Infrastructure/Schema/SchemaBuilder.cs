@@ -6,11 +6,6 @@ namespace BackendGenerator.Infrastructure.Schema;
 
 public class SchemaBuilder : ISchemaBuilder
 {
-    public SchemaBuilder()
-    {
-        
-    }
-
     public TableRegistry Build(HymlModel m)
     {
         var tableRegistry = new Dictionary<string, TableDefinition>();

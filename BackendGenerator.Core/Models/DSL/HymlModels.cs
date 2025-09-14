@@ -12,7 +12,8 @@ public record Entity
 {
     public IDictionary<string, Field> Fields { get; init; } = new Dictionary<string, Field>();
     public IList<Relation>? Relations { get; init; }
-    public bool GenerateCrudControllers {  get; init; }
+    public bool GenerateCrudControllers {  get; init; } = false;
+    public bool GenerateCrudRepositories { get; init; } = false ;
 }
 
 public record Field

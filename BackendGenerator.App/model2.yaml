@@ -29,8 +29,6 @@ entities:
         to: Tag.id
         through: ProductTag
         onDelete: cascade
-    generateCrudControllers: true
-    generateCrudRepositories: true
 
   Category:
     fields:
@@ -41,8 +39,6 @@ entities:
       name:
         type: string
         required: true
-    generateCrudControllers: true
-    generateCrudRepositories: true
 
   Customer:
     fields:
@@ -57,8 +53,6 @@ entities:
         type: string
         unique: true
         required: true
-    generateCrudControllers: true
-    generateCrudRepositories: true
 
   Order:
     fields:
@@ -77,7 +71,6 @@ entities:
         from: Order.customerId
         to: Customer.id
         onDelete: cascade
-    generateCrudRepositories: true
 
   OrderItem:
     fields:
@@ -103,7 +96,6 @@ entities:
         from: OrderItem.productId
         to: Product.id
         onDelete: cascade
-    generateCrudRepositories: true
 
   Tag:
     fields:
@@ -114,4 +106,3 @@ entities:
       name:
         type: string
         required: true
-    generateCrudRepositories: true
