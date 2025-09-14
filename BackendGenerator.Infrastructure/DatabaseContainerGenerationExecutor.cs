@@ -1,4 +1,5 @@
 ﻿using BackendGenerator.Core.Interfaces;
+using BackendGenerator.Core.Models;
 using BackendGenerator.Core.Models.hyml;
 using BackendGenerator.Core.Models.Schema;
 using BackendGenerator.Infrastructure.Emmiters;
@@ -10,28 +11,30 @@ using System.IO.Abstractions;
 
 namespace BackendGenerator.Infrastructure;
 
-public class PersistanceLayerGenerationExecutor
+public class DatabaseContainerGenerationExecutor
 {
     private readonly ISchemaBuilder _schemaBuilder;
-    private readonly CommandRunner _commandRunner;
+    private readonly ICommandRunner _commandRunner;
     private readonly IFileSystem _fileSystem;
-    private readonly ILogger<PersistanceLayerGenerationExecutor> _logger;
+    private readonly ILogger<DatabaseContainerGenerationExecutor> _logger;
     private readonly SqlFileWriter _sqlFileWriter;
-    public PersistanceLayerGenerationExecutor(ISchemaBuilder schemaBuilder,ILogger<PersistanceLayerGenerationExecutor> logger,
-        CommandRunner commandRunner, IFileSystem fileSystem, SqlFileWriter sqlFileWriter)
+    public DatabaseContainerGenerationExecutor(ISchemaBuilder schemaBuilder, ILogger<DatabaseContainerGenerationExecutor> logger,
+        IFileSystem fileSystem, SqlFileWriter sqlFileWriter, ICommandRunnerFactory commandRunneFactory)
     {
         _schemaBuilder = schemaBuilder;
         _logger = logger;
-        _commandRunner = commandRunner;
         _fileSystem = fileSystem;
         _sqlFileWriter = sqlFileWriter;
+        _commandRunner = commandRunneFactory.Create<DatabaseContainerGenerationExecutor>();
     }
 
     //TODO : Figure out how to enable this to run on linux aswell -> make this app OS agnostic
     //TODO : How to bundle the dbml2sql binaries into the packed application when published 
 
-    public Result<string> Execute(HymlModel model)
+    public DatabaseExecutionResult Execute(HymlModel model)
     {
+        _logger.LogInformation("Starting database creation");
+
         //retrieve temp path for creating db files
         string tempPath = _fileSystem.Path.GetTempPath() ?? string.Empty;
 
@@ -50,25 +53,43 @@ public class PersistanceLayerGenerationExecutor
 
 
         // Start PostgreSQL container
-        _commandRunner.RunCommand(
+        var startDockerContainerResult = _commandRunner.RunAndCheck(
             "docker",
             $"run --name {dockerContainerName} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB={databaseName} -p 5432:5432 -d postgres"
         );
+        if (startDockerContainerResult.IsFailed)
+        {
+            return new DatabaseExecutionResult(Result.Fail(startDockerContainerResult.Errors), dockerContainerName);
+        }
 
         // Copy SQL file into container
-        _commandRunner.RunCommand(
+        Result<CommandResult> copyingSqlResult = _commandRunner.RunAndCheck(
             "docker",
             $"cp \"{sqlOutputPath}\" {dockerContainerName}:/tmp/{model.Name}.sql"
         );
 
+        if (copyingSqlResult.IsFailed)
+        {
+            return new DatabaseExecutionResult(Result.Fail(copyingSqlResult.Errors), dockerContainerName);
+        }
+
         DockerContainerUtils.WaitForPostgresReady(dockerContainerName, _commandRunner);
 
         // Execute SQL inside container
-        _commandRunner.RunCommand(
+        Result<CommandResult> sqlExecutionResult = _commandRunner.RunAndCheck(
             "docker",
             $"exec -i {dockerContainerName} psql -U postgres -d {databaseName} -f /tmp/{model.Name}.sql"
         );
 
-        return Result.Ok($"{dockerContainerName}");
+        if (sqlExecutionResult.IsFailed)
+        {
+            return new DatabaseExecutionResult(Result.Fail(sqlExecutionResult.Errors), dockerContainerName);
+        }
+        _logger.LogInformation(
+                "Docker container created successfully with applied sql create script{newline}ContainerName: '{containername}'",
+                Environment.NewLine,
+                dockerContainerName);
+
+        return new DatabaseExecutionResult(Result.Ok(), dockerContainerName);
     }
 }

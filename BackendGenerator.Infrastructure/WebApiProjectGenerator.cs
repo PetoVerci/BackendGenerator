@@ -1,4 +1,5 @@
-﻿using BackendGenerator.Infrastructure.FileWriters;
+﻿using BackendGenerator.Core.Interfaces;
+using BackendGenerator.Infrastructure.FileWriters;
 using FluentResults;
 using Microsoft.Extensions.Logging;
 using System.IO.Abstractions;
@@ -7,12 +8,12 @@ namespace BackendGenerator.Infrastructure;
 
 public class WebApiProjectGenerator
 {
-    private readonly CommandRunner _commandRunner;
     private readonly AppSettingsDbConnectionWriter _connectionWriter;
     private readonly RepositoryGenerator _repositoryGenerator;
     private readonly ProgramGenerator _programGenerator;
     private readonly ILogger<WebApiProjectGenerator> _logger;
     private readonly IFileSystem _fileSystem;
+    private readonly ICommandRunner _commandRunner;
 
     private readonly string[] necessaryPackages =
     [
@@ -24,11 +25,11 @@ public class WebApiProjectGenerator
         "Microsoft.EntityFrameworkCore.SqlServer"
     ];
 
-    public WebApiProjectGenerator(CommandRunner commandRunner, AppSettingsDbConnectionWriter connectionWriter,
+    public WebApiProjectGenerator(ICommandRunnerFactory commandRunnerFactory, AppSettingsDbConnectionWriter connectionWriter,
         ILogger<WebApiProjectGenerator> logger, IFileSystem fileSystem, RepositoryGenerator repositoryGenerator,
         ProgramGenerator programGenerator)
     {
-        _commandRunner = commandRunner;
+        _commandRunner = commandRunnerFactory.Create<WebApiProjectGenerator>();
         _connectionWriter = connectionWriter;
         _logger = logger;
         _fileSystem = fileSystem;
@@ -53,34 +54,52 @@ public class WebApiProjectGenerator
             }
             _fileSystem.Directory.CreateDirectory(projectGenerationPath);
 
-            // Create web API project
-            var apiResult = RunAndCheck("dotnet", $"new webapi -o \"{projectPath}\" -n {projectName}");
-            if (apiResult.IsFailed) return apiResult;
+            _logger.LogInformation("Creating new web API project");
 
+            // Create web API project
+            var apiResult = _commandRunner.RunAndCheck("dotnet", $"new webapi -o \"{projectPath}\" -n {projectName}");
+            if (apiResult.IsFailed)
+            {
+                return apiResult.ToResult();
+            }
+
+            _logger.LogInformation("Adding necessary packages");
             // Install necessary packages
             foreach (var pkg in necessaryPackages)
             {
-                var pkgResult = RunAndCheck("dotnet", $"add \"{projectPath}\" package {pkg}");
-                if (pkgResult.IsFailed) return pkgResult;
+                var pkgResult = _commandRunner.RunAndCheck("dotnet", $"add \"{projectPath}\" package {pkg}");
+                if (pkgResult.IsFailed)
+                {
+                    return pkgResult.ToResult();
+                }
             }
 
-            // install aspnet code generator
-            var toolInstall = RunAndCheck("dotnet", "tool install --global dotnet-aspnet-codegenerator");
+            _logger.LogInformation("Installing ASP.NET code generator");
+            // Install aspnet code generator
+            var toolInstall = _commandRunner.RunAndCheck("dotnet", "tool install --global dotnet-aspnet-codegenerator");
+            if (toolInstall.IsFailed)
+            {
+                return toolInstall.ToResult();
+            }
 
+            _logger.LogInformation("Scaffolding database into DbContext and Entities");
             // Scaffold DbContext and entities
-            var scaffoldResult = RunAndCheck(
+            var scaffoldResult = _commandRunner.RunAndCheck(
                 "dotnet",
                 $"ef dbcontext scaffold \"{dbConnectionString}\" Npgsql.EntityFrameworkCore.PostgreSQL --output-dir Models --context-dir Data -c {dbContextName} --no-onconfiguring --force",
                 projectPath
             );
-            if (scaffoldResult.IsFailed) return scaffoldResult;
+            if (scaffoldResult.IsFailed)
+            {
+                return scaffoldResult.ToResult();
+            }
 
-            // Write connection string to appsettings
+            // Write connection string to appsettings <- NOT SURE IF EVEN NECESSARY, PROBABLY WILL BE SOLVED BY SOME .env FILE
             string appsettingsPath = _fileSystem.Path.Combine(projectPath, "appsettings.Development.json");
             var connResult = _connectionWriter.WriteToFile(appsettingsPath, dbConnectionString);
+
             if (connResult.IsFailed)
             {
-                _logger.LogError("Failed to write connection string to appsettings file");
                 return connResult;
             }
 
@@ -96,6 +115,7 @@ public class WebApiProjectGenerator
             // Generate repositories if specified
             if (generateRepositories)
             {
+                _logger.LogInformation("Generating CRUD Repositories");
                 GenerateRepositories(generateRepositoriesFor, projectName, projectPath, dbContextName);
             }
 
@@ -103,8 +123,10 @@ public class WebApiProjectGenerator
 
             if (generateControllers)
             {
+                _logger.LogInformation("Generating CRUD Controllers");
                 GenerateControllers(generateCrudControllersFor, dbContextName , projectPath);
             }
+            _logger.LogInformation("Web API project created successfully.");
             return Result.Ok();
         }
         catch (Exception ex)
@@ -127,18 +149,6 @@ public class WebApiProjectGenerator
         _repositoryGenerator.EmitRepositories(generateRepositoriesFor, repositoryFolderPath, repoTemplate, projectName, dbContextName);
     }
 
-    // Helper for running commands
-    private Result RunAndCheck(string command, string args, string? workingDir = null)
-    {
-        var result = _commandRunner.RunCommand(command, args, workingDir);
-        if (result.ExitCode != 0)
-        {
-            _logger.LogError("Command '{command} {args}' failed: {error}", command, args, result.Error);
-            return Result.Fail(result.Error);
-        }
-        return Result.Ok();
-    }
-
     private Result<string> GenerateControllers(List<string> generateCrudControllersFor, string dbContextName, string projectPath)
     {
         const string ControllerCommandTemplate =
@@ -153,8 +163,11 @@ public class WebApiProjectGenerator
                 .Replace("{MODEL}", entity)
                 .Replace("{DBCONTEXT}", dbContextName);
 
-            var controllerResult = RunAndCheck("dotnet", args, projectPath);
-            if (controllerResult.IsFailed) return controllerResult;
+            var controllerResult = _commandRunner.RunAndCheck("dotnet", args, projectPath);
+            if (controllerResult.IsFailed)
+            {
+                return controllerResult.ToResult();
+            }
         }
         return Result.Ok();
     }

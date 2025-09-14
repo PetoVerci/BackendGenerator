@@ -25,9 +25,12 @@ public class HymlModelParser : IModelParser
     {
         if (!_fileSystem.File.Exists(filePath))
         {
-            var msg = $"HYML file not found: {filePath}";
-            _logger.LogError(msg);
-            return Result.Fail(msg);
+            _logger.LogError(
+                "HYML file not found.{newline}FilePath: '{filePath}'",
+                Environment.NewLine,
+                filePath
+            );
+            return Result.Fail($"HYML file not found: {filePath}");
         }
         try
         {
@@ -42,19 +45,26 @@ public class HymlModelParser : IModelParser
 
             if (model == null)
             {
-                var warningMsg = $"Parsed HYML returned null for file: {filePath}";
-                _logger.LogWarning(warningMsg);
-                return Result.Fail(warningMsg);
+                _logger.LogWarning(
+                    "Parsed HYML returned null. {newline}Filepath: '{filePath}'",
+                    Environment.NewLine,
+                    filePath);
+                return Result.Fail($"Parsed HYML returned null for file: {filePath}");
             }
 
 
-            _logger.LogInformation("HYML file parsed successfully: {FilePath}", filePath);
+            _logger.LogInformation(
+                "HYML file parsed successfully{newline}FilePath: '{filePath}'",
+                Environment.NewLine,
+                filePath);
 
             var validationErrors = _validator.Validate(model);
             if (validationErrors.Count > 0)
             {
                 foreach (var err in validationErrors)
-                    _logger.LogError("Validation error: {Error}", err);
+                {
+                    _logger.LogError("HYML file validation error: '{Error}'", err);
+                }
 
                 return Result.Fail(
                     $"Validation failed for model '{model.Name ?? "unnamed"}' " +
@@ -67,17 +77,28 @@ public class HymlModelParser : IModelParser
 
         catch (YamlException ye)
         {
-            var line = ye.Start.Line;  // 1-based line number where error occurred
-            var column = ye.Start.Column;
-            var msg = $"HYML parse error at line {line}, column {column}: {ye.Message}, INNER EXCEPTION : {ye.InnerException}";
-            _logger.LogError(ye, msg);
+            long line = ye.Start.Line;  // 1-based line number where error occurred
+            long column = ye.Start.Column;
+            string msg = $"HYML parse error at Line '{line}', Column '{column}', Exception message: '{ye.Message}', Inner exception : '{ye.InnerException?.Message}'";
+            _logger.LogError(
+                ye,
+                "HYML parse error at Line '{line}', Column '{column}', Exception message: '{Message}', Inner exception : '{InnerException}'",
+                line,
+                column,
+                ye.Message,
+                ye.InnerException?.Message);
             return Result.Fail(msg);
         }
 
         catch (Exception ex)
         {
-            var errorMsg = $"Error parsing HYML file {filePath}: {ex.Message}, innerException : {ex.InnerException?.Message}";
-            _logger.LogError(ex, errorMsg);
+            var errorMsg = $"Error parsing HYML File with filepath: {filePath}, Excetion message: {ex.Message}, Inner exception : {ex.InnerException?.Message}";
+            _logger.LogError(
+                ex,
+                "Error parsing HYML File with filepath: '{filePath}', Excetion message: '{Message}', Inner exception : '{InnerExceptione}'",
+                filePath,
+                ex.Message,
+                ex.InnerException?.Message);
             return Result.Fail(errorMsg).WithError(ex.ToString());
         }
     }

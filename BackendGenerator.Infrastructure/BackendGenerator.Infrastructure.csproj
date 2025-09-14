@@ -19,4 +19,8 @@
     <ProjectReference Include="..\BackendGenerator.Core\BackendGenerator.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="CmdRunner\" />
+  </ItemGroup>
+
 </Project>

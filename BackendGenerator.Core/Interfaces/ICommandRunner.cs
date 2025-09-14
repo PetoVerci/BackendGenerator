@@ -1,8 +1,9 @@
 ﻿using BackendGenerator.Core.Models;
+using FluentResults;
 
 namespace BackendGenerator.Core.Interfaces;
 
 public interface ICommandRunner
 {
-    CommandResult RunCommand(string command, string args, string? workingDirectory = null);
+    Result<CommandResult> RunAndCheck(string command, string args, string? workingDir = null);
 }
